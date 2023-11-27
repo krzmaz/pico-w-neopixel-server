@@ -29,6 +29,7 @@ use fixed::types::U24F8;
 use fixed_macro::fixed;
 use heapless::Vec;
 use itertools::Itertools;
+use ringbuf::StaticRb;
 use static_cell::make_static;
 
 bind_interrupts!(struct Irqs {
@@ -200,8 +201,9 @@ async fn main(spawner: Spawner) {
 
     let mut rx_buffer = [0; 16384];
     let mut tx_buffer = [0; 1024];
-    let mut read_buf = [0; 4096];
-    let mut buffer = Vec::<u8, 16384>::new();
+    let mut rb = StaticRb::<u8, 16384>::default();
+    let (mut prod, mut cons) = rb.split_ref();
+    let mut num_bytes: Option<u16> = None;
 
     loop {
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
@@ -217,7 +219,13 @@ async fn main(spawner: Spawner) {
         log::info!("Received connection from {:?}", socket.remote_endpoint());
 
         loop {
-            let count = match socket.read(&mut read_buf).await {
+            let count = match socket
+                .read_with(|x| {
+                    let n = prod.push_slice(x);
+                    (n, n)
+                })
+                .await
+            {
                 Ok(0) => {
                     log::warn!("read EOF");
                     break;
@@ -229,33 +237,27 @@ async fn main(spawner: Spawner) {
                 }
             };
 
-            buffer.extend(read_buf.iter().take(count).copied());
-            if buffer.len() > 1 {
-                let length: u16 = u16::from_le_bytes([buffer[0], buffer[1]]);
-                if buffer.len() >= (length + 2) as usize {
+            if count > 1 {
+                if num_bytes.is_none() {
+                    num_bytes = Some(u16::from_le_bytes([cons.pop().unwrap(), cons.pop().unwrap()]));
+                }
+                let length = num_bytes.unwrap();
+                if cons.len() >= length as usize {
                     // there might be the start of the next "frame" in the input buffer
-                    let overflow = buffer.len() - (length as usize + 2);
+                    let overflow = cons.len() - length as usize;
                     if overflow > 0 {
                         log::warn!("overflow len: {:?}", overflow);
                     }
-                    let rgb_words: Vec<u32, 2048> = buffer
-                        .iter()
-                        .skip(2)
+                    let rgb_words: Vec<u32, 2048> = cons
+                        .pop_iter()
                         .take(length as usize)
-                        .copied()
                         .tuples::<(_, _, _)>()
                         .map(|(r, g, b)| ((u32::from(g) << 24) | (u32::from(r) << 16) | (u32::from(b) << 8)))
                         .collect();
                     ws2812.write_raw(&rgb_words).await;
+                    num_bytes = None;
                     // let the neopixels latch on
                     Timer::after_micros(51).await;
-
-                    buffer.clear();
-                    if let Some(remainder) = read_buf.get((count - overflow)..count) {
-                        // safe to unwrap since we clear the buffer above, so the remainder
-                        // cannot extend its capacity
-                        buffer.extend_from_slice(remainder).unwrap();
-                    }
                 }
             }
         }
