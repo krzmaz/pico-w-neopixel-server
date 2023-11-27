@@ -12,7 +12,7 @@
 
   "rust-analyzer.cargo.features": [
     // Uncomment if the example has a "nightly" feature.
-    "nightly",
+    // "nightly",
   ],
   "rust-analyzer.linkedProjects": [
     "Cargo.toml",
