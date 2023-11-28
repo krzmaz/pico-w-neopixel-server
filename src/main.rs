@@ -11,6 +11,7 @@
 mod binary_info;
 mod panic;
 mod secret;
+mod ws2812;
 
 use cyw43_pio::PioSpi;
 use defmt::*;
@@ -18,106 +19,23 @@ use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{Stack, StackResources};
-use embassy_rp::dma::{AnyChannel, Channel};
+use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0, PIO1, USB};
-use embassy_rp::pio::{Common, FifoJoin, Instance, Pio, PioPin, ShiftConfig, ShiftDirection, StateMachine};
+use embassy_rp::pio::Pio;
 use embassy_rp::usb::Driver;
-use embassy_rp::{bind_interrupts, clocks, into_ref, Peripheral, PeripheralRef};
 use embassy_time::{Duration, Timer};
-use fixed::types::U24F8;
-use fixed_macro::fixed;
-use heapless::Vec;
 use itertools::Itertools;
 use ringbuf::StaticRb;
 use static_cell::make_static;
+
+use crate::ws2812::Ws2812;
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
     PIO1_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO1>;
 });
-
-pub struct Ws2812<'d, P: Instance, const S: usize> {
-    dma: PeripheralRef<'d, AnyChannel>,
-    sm: StateMachine<'d, P, S>,
-}
-
-impl<'d, P: Instance, const S: usize> Ws2812<'d, P, S> {
-    pub fn new(
-        pio: &mut Common<'d, P>,
-        mut sm: StateMachine<'d, P, S>,
-        dma: impl Peripheral<P = impl Channel> + 'd,
-        pin: impl PioPin,
-    ) -> Self {
-        into_ref!(dma);
-
-        // Setup sm0
-
-        // prepare the PIO program
-        let side_set = pio::SideSet::new(false, 1, false);
-        let mut a: pio::Assembler<32> = pio::Assembler::new_with_side_set(side_set);
-
-        const T1: u8 = 2; // start bit
-        const T2: u8 = 5; // data bit
-        const T3: u8 = 3; // stop bit
-        const CYCLES_PER_BIT: u32 = (T1 + T2 + T3) as u32;
-
-        let mut wrap_target = a.label();
-        let mut wrap_source = a.label();
-        let mut do_zero = a.label();
-        a.set_with_side_set(pio::SetDestination::PINDIRS, 1, 0);
-        a.bind(&mut wrap_target);
-        // Do stop bit
-        a.out_with_delay_and_side_set(pio::OutDestination::X, 1, T3 - 1, 0);
-        // Do start bit
-        a.jmp_with_delay_and_side_set(pio::JmpCondition::XIsZero, &mut do_zero, T1 - 1, 1);
-        // Do data bit = 1
-        a.jmp_with_delay_and_side_set(pio::JmpCondition::Always, &mut wrap_target, T2 - 1, 1);
-        a.bind(&mut do_zero);
-        // Do data bit = 0
-        a.nop_with_delay_and_side_set(T2 - 1, 0);
-        a.bind(&mut wrap_source);
-
-        let prg = a.assemble_with_wrap(wrap_source, wrap_target);
-        let mut cfg = embassy_rp::pio::Config::default();
-
-        // Pin config
-        let out_pin = pio.make_pio_pin(pin);
-        cfg.set_out_pins(&[&out_pin]);
-        cfg.set_set_pins(&[&out_pin]);
-
-        cfg.use_program(&pio.load_program(&prg), &[&out_pin]);
-
-        // Clock config, measured in kHz to avoid overflows
-        // TODO CLOCK_FREQ should come from embassy_rp
-        let clock_freq = U24F8::from_num(clocks::clk_sys_freq() / 1000);
-        let ws2812_freq = fixed!(800: U24F8);
-        let bit_freq = ws2812_freq * CYCLES_PER_BIT;
-        cfg.clock_divider = clock_freq / bit_freq;
-
-        // FIFO config
-        cfg.fifo_join = FifoJoin::TxOnly;
-        cfg.shift_out = ShiftConfig {
-            auto_fill: true,
-            threshold: 24,
-            direction: ShiftDirection::Left,
-        };
-
-        sm.set_config(&cfg);
-        sm.set_enable(true);
-
-        Self {
-            dma: dma.map_into(),
-            sm,
-        }
-    }
-
-    pub async fn write_raw(&mut self, words: &[u32]) {
-        // DMA transfer
-        self.sm.tx().dma_push(self.dma.reborrow(), words).await;
-    }
-}
 
 #[embassy_executor::task]
 async fn wifi_task(
@@ -241,23 +159,21 @@ async fn main(spawner: Spawner) {
                 if num_bytes.is_none() {
                     num_bytes = Some(u16::from_le_bytes([cons.pop().unwrap(), cons.pop().unwrap()]));
                 }
-                let length = num_bytes.unwrap();
-                if cons.len() >= length as usize {
+                let length = num_bytes.unwrap() as usize;
+                if cons.len() >= length {
                     // there might be the start of the next "frame" in the input buffer
-                    let overflow = cons.len() - length as usize;
+                    let overflow = cons.len() - length;
                     if overflow > 0 {
                         log::warn!("overflow len: {:?}", overflow);
                     }
-                    let rgb_words: Vec<u32, 2048> = cons
-                        .pop_iter()
-                        .take(length as usize)
-                        .tuples::<(_, _, _)>()
-                        .map(|(r, g, b)| ((u32::from(g) << 24) | (u32::from(r) << 16) | (u32::from(b) << 8)))
-                        .collect();
-                    ws2812.write_raw(&rgb_words).await;
+                    cons.pop_iter()
+                        .take(length)
+                        .tuples()
+                        .for_each(|(r, g, b)| ws2812.write(r, g, b));
+
                     num_bytes = None;
                     // let the neopixels latch on
-                    Timer::after_micros(51).await;
+                    Timer::after_micros(60).await;
                 }
             }
         }
