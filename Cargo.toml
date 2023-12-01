@@ -44,5 +44,8 @@ pio = "0.2.1"
 itertools = { version = "0.11.0", default-features = false }
 ringbuf = { version = "0.3.3", default-features = false }
 
+[features]
+grb = []
+
 [profile.release]
 # debug = 2

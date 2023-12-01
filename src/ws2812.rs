@@ -3,6 +3,18 @@ use embassy_rp::pio::{Common, FifoJoin, Instance, PioPin, ShiftConfig, ShiftDire
 use embassy_rp::{clocks, into_ref, Peripheral, PeripheralRef};
 use fixed::types::U24F8;
 use fixed_macro::fixed;
+
+#[cfg(not(feature = "grb"))]
+#[inline(always)]
+pub fn convert_colors_to_word(r: u8, g: u8, b: u8) -> u32 {
+    u32::from_be_bytes([r, g, b, 0])
+}
+#[cfg(feature = "grb")]
+#[inline(always)]
+pub fn convert_colors_to_word(r: u8, g: u8, b: u8) -> u32 {
+    u32::from_be_bytes([g, r, b, 0])
+}
+
 pub struct Ws2812<'d, P: Instance, const S: usize> {
     #[allow(dead_code)] // leaving dma for future experiments
     dma: PeripheralRef<'d, AnyChannel>,
@@ -85,7 +97,7 @@ impl<'d, P: Instance, const S: usize> Ws2812<'d, P, S> {
     }
 
     pub fn write(&mut self, r: u8, g: u8, b: u8) {
-        let word = u32::from_be_bytes([g, r, b, 0]);
+        let word = convert_colors_to_word(r,g,b);
         // we need to watch out not to overflow the FIFO, see:
         // https://github.com/rp-rs/ws2812-pio-rs/blob/944494ca9dad73933f700408c3054c8f14c78998/src/lib.rs#L177-L179
         while !self.sm.tx().try_push(word) {
