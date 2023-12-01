@@ -8,11 +8,6 @@
 #![feature(async_fn_in_trait)]
 #![allow(incomplete_features)]
 
-mod binary_info;
-mod panic;
-mod secret;
-mod ws2812;
-
 use cyw43_pio::PioSpi;
 use defmt::*;
 use defmt_rtt as _;
@@ -26,10 +21,10 @@ use embassy_rp::pio::Pio;
 use embassy_rp::usb::Driver;
 use embassy_time::{Duration, Timer};
 use itertools::Itertools;
+use pico_w_neopixel_server::secret;
+use pico_w_neopixel_server::ws2812::Ws2812;
 use ringbuf::StaticRb;
 use static_cell::make_static;
-
-use crate::ws2812::Ws2812;
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
@@ -63,8 +58,8 @@ async fn main(spawner: Spawner) {
     let mut ws2812 = Ws2812::new(&mut common, sm0, p.DMA_CH1, p.PIN_2);
     spawner.spawn(logger_task(driver)).unwrap();
 
-    let fw = include_bytes!("../embassy/cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../embassy/cyw43-firmware/43439A0_clm.bin");
+    let fw = include_bytes!("../../embassy/cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../../embassy/cyw43-firmware/43439A0_clm.bin");
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
