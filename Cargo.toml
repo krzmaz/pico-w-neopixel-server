@@ -1,8 +1,9 @@
 [package]
 edition = "2021"
 name = "pico-w-neopixel-server"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT OR Apache-2.0"
+default-run = "tcp"
 
 
 [dependencies]

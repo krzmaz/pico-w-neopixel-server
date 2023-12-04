@@ -97,7 +97,7 @@ impl<'d, P: Instance, const S: usize> Ws2812<'d, P, S> {
     }
 
     pub fn write(&mut self, r: u8, g: u8, b: u8) {
-        let word = convert_colors_to_word(r,g,b);
+        let word = convert_colors_to_word(r, g, b);
         // we need to watch out not to overflow the FIFO, see:
         // https://github.com/rp-rs/ws2812-pio-rs/blob/944494ca9dad73933f700408c3054c8f14c78998/src/lib.rs#L177-L179
         while !self.sm.tx().try_push(word) {
