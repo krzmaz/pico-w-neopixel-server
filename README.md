@@ -45,6 +45,17 @@ cargo run --release --bin udp
 > Make sure that the UDP packets length doesn't exceed the MTU in your network.
 > For a default MTU of 1500 bytes, you won't be able to drive 500 LEDs due to the protocol overhead.
 
+## Testing
+The protocol is as follows: the length of the data is send on the first two bytes (Little Endian) and then all the colors are sent in RGB order. For example this data:
+```
+03 00 7F 00 00
+```
+will turn on the first LED to red with half intensity. On linux it can be tested quickly by doing:
+```
+printf '\x03\x00\x7F\x00\x00' | nc -v <IP_ADDRESS> 1234 
+```
+
+If you build the project in debug mode (omit the `--release` in `cargo run`), you should also see the received bytes in the logs.
 
 ---
 The legacy version of this project using Pico C++ SDK can be found here: https://github.com/krzmaz/pico-w-neopixel-server-cpp
