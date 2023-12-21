@@ -16,13 +16,13 @@ use embassy_net::udp::{PacketMetadata, UdpSocket};
 use embassy_net::{Stack, StackResources};
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_25, PIO0, PIO1, USB};
+use embassy_rp::peripherals::{PIO0, PIO1, USB};
 use embassy_rp::pio::Pio;
 use embassy_rp::usb::Driver;
 use embassy_time::Timer;
 use itertools::Itertools;
-use pico_w_neopixel_server::secret;
 use pico_w_neopixel_server::ws2812::Ws2812;
+use pico_w_neopixel_server::{logger_task, net_task, secret, wifi_task};
 use ringbuf::StaticRb;
 use static_cell::make_static;
 
@@ -31,23 +31,6 @@ bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
     PIO1_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO1>;
 });
-
-#[embassy_executor::task]
-async fn wifi_task(
-    runner: cyw43::Runner<'static, Output<'static, PIN_23>, PioSpi<'static, PIN_25, PIO0, 0, DMA_CH0>>,
-) -> ! {
-    runner.run().await
-}
-
-#[embassy_executor::task]
-async fn net_task(stack: &'static Stack<cyw43::NetDriver<'static>>) -> ! {
-    stack.run().await
-}
-
-#[embassy_executor::task]
-async fn logger_task(driver: Driver<'static, USB>) {
-    embassy_usb_logger::run!(1024, log::LevelFilter::Info, driver);
-}
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -137,6 +120,7 @@ async fn main(spawner: Spawner) {
                     break;
                 }
             };
+            log::debug!("Received bytes: {:?}", &buf[0..count]);
             prod.push_slice(&buf[0..count]);
 
             if count > 1 {
