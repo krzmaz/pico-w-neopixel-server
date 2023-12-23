@@ -19,10 +19,9 @@ use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{PIO0, PIO1, USB};
 use embassy_rp::pio::Pio;
 use embassy_rp::usb::Driver;
-use embassy_time::{Duration, Timer};
-use itertools::Itertools;
+use embassy_time::Duration;
 use pico_w_neopixel_server::ws2812::Ws2812;
-use pico_w_neopixel_server::{logger_task, net_task, secret, wifi_task};
+use pico_w_neopixel_server::{frame, logger_task, net_task, secret, wifi_task};
 use ringbuf::StaticRb;
 use static_cell::make_static;
 
@@ -99,7 +98,6 @@ async fn main(spawner: Spawner) {
     let mut tx_buffer = [0; 1024];
     let mut rb = StaticRb::<u8, 16384>::default();
     let (mut prod, mut cons) = rb.split_ref();
-    let mut num_bytes: Option<u16> = None;
 
     loop {
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
@@ -115,6 +113,10 @@ async fn main(spawner: Spawner) {
         log::info!("Received connection from {:?}", socket.remote_endpoint());
 
         loop {
+            while let Some(frame_length) = frame::next_length(&cons) {
+                frame::display_frame(&mut cons, frame_length, &mut ws2812).await;
+            }
+
             match socket
                 .read_with(|x| {
                     log::debug!("Received bytes: {:?}", x);
@@ -131,28 +133,6 @@ async fn main(spawner: Spawner) {
                 Err(e) => {
                     log::warn!("read error: {:?}", e);
                     break;
-                }
-            }
-
-            if cons.len() > 1 {
-                if num_bytes.is_none() {
-                    num_bytes = Some(u16::from_le_bytes([cons.pop().unwrap(), cons.pop().unwrap()]));
-                }
-                let length = num_bytes.unwrap() as usize;
-                if cons.len() >= length {
-                    // there might be the start of the next "frame" in the input buffer
-                    let overflow = cons.len() - length;
-                    if overflow > 0 {
-                        log::warn!("overflow len: {:?}", overflow);
-                    }
-                    cons.pop_iter()
-                        .take(length)
-                        .tuples()
-                        .for_each(|(r, g, b)| ws2812.write(r, g, b));
-
-                    num_bytes = None;
-                    // let the neopixels latch on
-                    Timer::after_micros(60).await;
                 }
             }
         }
