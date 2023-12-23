@@ -130,7 +130,7 @@ async fn main(spawner: Spawner) {
             continue;
         }
         loop {
-            let count = match socket.recv_from(&mut buf).await {
+            let count = match socket.recv_from(&mut buf[..cons.free_len()]).await {
                 Ok((count, _)) => count,
                 Err(e) => {
                     log::warn!("read error: {:?}", e);
@@ -139,7 +139,7 @@ async fn main(spawner: Spawner) {
             };
             prod.push_slice(&buf[0..count]);
 
-            if count > 1 {
+            if cons.len() > 1 {
                 if num_bytes.is_none() {
                     num_bytes = Some(u16::from_le_bytes([cons.pop().unwrap(), cons.pop().unwrap()]));
                 }
