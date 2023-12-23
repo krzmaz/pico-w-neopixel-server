@@ -115,26 +115,26 @@ async fn main(spawner: Spawner) {
         log::info!("Received connection from {:?}", socket.remote_endpoint());
 
         loop {
-            let count = match socket
+            match socket
                 .read_with(|x| {
                     log::debug!("Received bytes: {:?}", x);
                     let n = prod.push_slice(x);
-                    (n, n)
+                    (n, x.is_empty())
                 })
                 .await
             {
-                Ok(0) => {
+                Ok(true) => {
                     log::warn!("read EOF");
                     break;
                 }
-                Ok(n) => n,
+                Ok(_) => (),
                 Err(e) => {
                     log::warn!("read error: {:?}", e);
                     break;
                 }
-            };
+            }
 
-            if count > 1 {
+            if cons.len() > 1 {
                 if num_bytes.is_none() {
                     num_bytes = Some(u16::from_le_bytes([cons.pop().unwrap(), cons.pop().unwrap()]));
                 }
