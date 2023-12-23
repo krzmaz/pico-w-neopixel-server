@@ -2,6 +2,7 @@
 #![feature(type_alias_impl_trait)]
 
 pub mod binary_info;
+pub mod frame;
 pub mod panic;
 pub mod secret;
 pub mod ws2812;
