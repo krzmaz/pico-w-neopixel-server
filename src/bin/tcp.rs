@@ -103,16 +103,16 @@ async fn main(spawner: Spawner) {
 
     loop {
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(10)));
-        socket.set_keep_alive(Some(Duration::from_secs(10)));
+        socket.set_timeout(Some(Duration::from_secs(1)));
 
         log::info!("Listening on TCP:1234...");
         if let Err(e) = socket.accept(1234).await {
             log::warn!("accept error: {:?}", e);
             continue;
         }
-
         log::info!("Received connection from {:?}", socket.remote_endpoint());
+
+        cons.clear();
 
         loop {
             match socket
