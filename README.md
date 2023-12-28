@@ -5,6 +5,8 @@ Simple webserver aiming to be a thin remote controller for neopixel lights.
 Developed to work with https://github.com/mrozycki/rustmas project.
 
 ## Setup
+### Wiring
+See [wiring.md](docs/wiring.md)
 ### Dependencies
 You will need to use [picotool](https://github.com/raspberrypi/picotool) or [elf2uf2-rs](https://github.com/JoNil/elf2uf2-rs) to flash the compiled binary onto your pico.  
 Choose whichever you want and set the runner in `.cargo/config.toml` accordingly
