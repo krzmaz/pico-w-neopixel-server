@@ -92,7 +92,7 @@ impl<'d, P: Instance, const S: usize> Ws2812<'d, P, S> {
     }
 
     // left here for future experiments
-    pub async fn _write_dma(&mut self, data: &[u32]) {
+    pub async fn write_dma(&mut self, data: &[u32]) {
         self.sm.tx().dma_push(self.dma.reborrow(), data).await;
     }
 

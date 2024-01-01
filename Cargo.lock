@@ -12,6 +12,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aligned"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a785a543aea40f5e4e2e93bb2655d31bc21bb391fff65697150973e383f16bb"
+dependencies = [
+ "as-slice 0.1.5",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -90,6 +99,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bbqueue"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd3baa8859d1a4c7411039a75c0599a4640ef1c9a8fc811e4325b00e6cfe0a55"
+dependencies = [
+ "cortex-m 0.6.7",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -148,6 +166,19 @@ checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
  "termcolor",
  "unicode-width",
+]
+
+[[package]]
+name = "cortex-m"
+version = "0.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9075300b07c6a56263b9b582c214d0ff037b00d45ec9fde1cc711490c56f1bb9"
+dependencies = [
+ "aligned",
+ "bare-metal",
+ "bitfield",
+ "cortex-m 0.7.7",
+ "volatile-register",
 ]
 
 [[package]]
@@ -216,9 +247,8 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 name = "cyw43"
 version = "0.1.0"
 dependencies = [
- "cortex-m",
+ "cortex-m 0.7.7",
  "cortex-m-rt",
- "defmt",
  "embassy-futures",
  "embassy-net-driver-channel",
  "embassy-sync",
@@ -233,7 +263,6 @@ name = "cyw43-pio"
 version = "0.1.0"
 dependencies = [
  "cyw43",
- "defmt",
  "embassy-rp",
  "fixed",
  "pio",
@@ -376,7 +405,7 @@ dependencies = [
 name = "embassy-executor"
 version = "0.3.3"
 dependencies = [
- "cortex-m",
+ "cortex-m 0.7.7",
  "critical-section",
  "defmt",
  "embassy-macros",
@@ -391,7 +420,7 @@ version = "0.1.1"
 name = "embassy-hal-internal"
 version = "0.1.0"
 dependencies = [
- "cortex-m",
+ "cortex-m 0.7.7",
  "critical-section",
  "defmt",
  "num-traits",
@@ -413,7 +442,6 @@ version = "0.2.1"
 dependencies = [
  "as-slice 0.2.1",
  "atomic-pool",
- "defmt",
  "embassy-net-driver",
  "embassy-sync",
  "embassy-time",
@@ -430,9 +458,6 @@ dependencies = [
 [[package]]
 name = "embassy-net-driver"
 version = "0.2.0"
-dependencies = [
- "defmt",
-]
 
 [[package]]
 name = "embassy-net-driver-channel"
@@ -449,7 +474,7 @@ version = "0.1.0"
 dependencies = [
  "atomic-polyfill",
  "cfg-if",
- "cortex-m",
+ "cortex-m 0.7.7",
  "cortex-m-rt",
  "critical-section",
  "defmt",
@@ -506,7 +531,6 @@ dependencies = [
 name = "embassy-usb"
 version = "0.1.0"
 dependencies = [
- "defmt",
  "embassy-futures",
  "embassy-net-driver-channel",
  "embassy-sync",
@@ -870,7 +894,6 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
 dependencies = [
- "defmt",
  "hash32",
  "stable_deref_trait",
 ]
@@ -1071,6 +1094,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
+name = "panic-probe"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa6fa5645ef5a760cd340eaa92af9c1ce131c8c09e7f8926d8a24b59d26652b9"
+dependencies = [
+ "cortex-m 0.7.7",
+ "defmt",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1122,7 +1155,8 @@ dependencies = [
 name = "pico-w-neopixel-server"
 version = "0.2.0"
 dependencies = [
- "cortex-m",
+ "bbqueue",
+ "cortex-m 0.7.7",
  "cortex-m-rt",
  "cyw43",
  "cyw43-pio",
@@ -1147,6 +1181,7 @@ dependencies = [
  "heapless",
  "itertools 0.11.0",
  "log",
+ "panic-probe",
  "pio",
  "pio-proc",
  "portable-atomic",
@@ -1345,7 +1380,7 @@ version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f30f6c4c846269293db805e9c77864ff7b923395b480550df44f0868e3765337"
 dependencies = [
- "cortex-m",
+ "cortex-m 0.7.7",
  "cortex-m-rt",
 ]
 
@@ -1447,7 +1482,6 @@ dependencies = [
  "bitflags 1.3.2",
  "byteorder",
  "cfg-if",
- "defmt",
  "heapless",
  "managed",
 ]
