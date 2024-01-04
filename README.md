@@ -30,17 +30,20 @@ This repo contains both TCP and UDP versions of the neopixel server. The TCP one
 
 To flash it to pico just put the pico in bootsel mode and run
 ```sh
+cd neopixel-server
 cargo run --release
 ```
 
 > [!NOTE] 
 > Some lights have their red and green colors swapped, if you don't want to compensate for that in each frame sent to pico, you can compensate in the firmware:
 ```sh
+cd neopixel-server
 cargo run --release --features grb
 ```
 ### UDP
 To use the UDP version you just need to add `--bin udp` to your flash command:
 ```sh
+cd neopixel-server
 cargo run --release --bin udp
 ```
 > [!IMPORTANT]  
