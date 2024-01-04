@@ -151,6 +151,8 @@ async fn main(spawner: Spawner) {
                         .for_each(|(r, g, b)| ws2812.write(r, g, b));
 
                     num_bytes = None;
+                    // wait for the state machine to write all bytes
+                    ws2812.flush();
                     // let the neopixels latch on
                     Timer::after_micros(60).await;
                 }
