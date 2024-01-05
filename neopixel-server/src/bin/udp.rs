@@ -21,8 +21,8 @@ use embassy_rp::pio::Pio;
 use embassy_rp::usb::Driver;
 use embassy_time::Timer;
 use itertools::Itertools;
-use pico_w_neopixel_server::ws2812::Ws2812;
-use pico_w_neopixel_server::{logger_task, net_task, secret, wifi_task};
+use neopixel_server::ws2812::Ws2812;
+use neopixel_server::{logger_task, net_task, secret, wifi_task};
 use ringbuf::StaticRb;
 use static_cell::make_static;
 
@@ -41,8 +41,8 @@ async fn main(spawner: Spawner) {
     let mut ws2812 = Ws2812::new(&mut common, sm0, p.DMA_CH1, p.PIN_2);
     spawner.spawn(logger_task(driver)).unwrap();
 
-    let fw = include_bytes!("../../embassy/cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../../embassy/cyw43-firmware/43439A0_clm.bin");
+    let fw = include_bytes!("../../../embassy/cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../../../embassy/cyw43-firmware/43439A0_clm.bin");
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
@@ -140,6 +140,8 @@ async fn main(spawner: Spawner) {
                         .for_each(|(r, g, b)| ws2812.write(r, g, b));
 
                     num_bytes = None;
+                    // wait for the state machine to write all bytes
+                    ws2812.flush();
                     // let the neopixels latch on
                     Timer::after_micros(60).await;
                 }

@@ -91,6 +91,15 @@ impl<'d, P: Instance, const S: usize> Ws2812<'d, P, S> {
         }
     }
 
+    // see https://github.com/rp-rs/ws2812-pio-rs/blob/944494ca9dad73933f700408c3054c8f14c78998/src/lib.rs#L262-L263
+    pub fn flush(&mut self) {
+        // clear stalled flag first
+        self.sm.tx().stalled();
+        while !self.sm.tx().empty() && !self.sm.tx().stalled() {
+            cortex_m::asm::nop();
+        }
+    }
+
     // left here for future experiments
     pub async fn _write_dma(&mut self, data: &[u32]) {
         self.sm.tx().dma_push(self.dma.reborrow(), data).await;
