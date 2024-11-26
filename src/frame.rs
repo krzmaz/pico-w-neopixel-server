@@ -42,7 +42,8 @@ where
     for (r, g, b) in cons.pop_iter().skip(2).take(len).tuples() {
         ws2812.write(r, g, b);
     }
-
+    // wait for the state machine to write all bytes
+    ws2812.flush();
     // let the neopixels latch on
     Timer::after_micros(60).await;
 }
