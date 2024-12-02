@@ -4,8 +4,6 @@
 
 #![no_std]
 #![no_main]
-#![feature(type_alias_impl_trait)]
-#![feature(async_fn_in_trait)]
 #![allow(incomplete_features)]
 
 use cyw43_pio::PioSpi;
@@ -13,7 +11,7 @@ use defmt::*;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
-use embassy_net::{Stack, StackResources};
+use embassy_net::StackResources;
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{PIO0, PIO1, USB};
@@ -23,7 +21,7 @@ use embassy_time::Duration;
 use pico_w_neopixel_server::ws2812::Ws2812;
 use pico_w_neopixel_server::{frame, logger_task, net_task, secret, wifi_task};
 use ringbuf::StaticRb;
-use static_cell::make_static;
+use static_cell::StaticCell;
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
@@ -40,8 +38,8 @@ async fn main(spawner: Spawner) {
     let mut ws2812 = Ws2812::new(&mut common, sm0, p.DMA_CH1, p.PIN_2);
     spawner.spawn(logger_task(driver)).unwrap();
 
-    let fw = include_bytes!("../../embassy/cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../../embassy/cyw43-firmware/43439A0_clm.bin");
+    let fw = include_bytes!("../../cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../../cyw43-firmware/43439A0_clm.bin");
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
@@ -55,7 +53,8 @@ async fn main(spawner: Spawner) {
     let mut pio0 = Pio::new(p.PIO0, Irqs);
     let spi = PioSpi::new(&mut pio0.common, pio0.sm0, pio0.irq0, cs, p.PIN_24, p.PIN_29, p.DMA_CH0);
 
-    let state = make_static!(cyw43::State::new());
+    static STATE: StaticCell<cyw43::State> = StaticCell::new();
+    let state = STATE.init(cyw43::State::new());
     let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
     unwrap!(spawner.spawn(wifi_task(runner)));
     control.init(clm).await;
@@ -67,14 +66,11 @@ async fn main(spawner: Spawner) {
     let seed = 0x0123_4567_89ab_cdef; // chosen by fair dice roll. guarenteed to be random.
 
     // Init network stack
-    let stack = &*make_static!(Stack::new(
-        net_device,
-        config,
-        make_static!(StackResources::<2>::new()),
-        seed
-    ));
+    static RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
+    let (stack, runner) = embassy_net::new(net_device, config, RESOURCES.init(StackResources::new()), seed);
 
-    unwrap!(spawner.spawn(net_task(stack)));
+    // Launch network task that runs `stack.run().await`
+    spawner.spawn(net_task(runner)).unwrap();
 
     loop {
         // use the example file to create secret.rs
