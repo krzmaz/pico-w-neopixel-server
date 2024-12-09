@@ -29,8 +29,15 @@ where
     peek(cons, 0)
         .zip(peek(cons, 1))
         .map(|(l1, l2)| u16::from_le_bytes([*l1, *l2]))
-        .map(|l| l as usize)
-        .filter(|len| *len < cons.len())
+        .map(|l| {
+            // If we seem to have received a frame which length is not divisible
+            // by 3, the only guaranteed way to recover is to panic and restart.
+            assert!(l % 3 == 0);
+            l as usize
+        })
+        // Only return Some if cons contains the full frame: at least len bytes
+        // for subpixel values, plus 2 bytes for the length itself.
+        .filter(|len| *len + 2 <= cons.len())
 }
 
 pub async fn display_frame<R, P, const S: usize>(cons: &mut Consumer<u8, R>, len: usize, ws2812: &mut Ws2812<'_, P, S>)
@@ -39,7 +46,10 @@ where
     R::Rb: RbRead<u8>,
     P: Instance,
 {
-    for (r, g, b) in cons.pop_iter().skip(2).take(len).tuples() {
+    // Pop the first two bytes containing the length
+    cons.skip(2);
+
+    for (r, g, b) in cons.pop_iter().take(len).tuples() {
         ws2812.write(r, g, b);
     }
     // wait for the state machine to write all bytes
