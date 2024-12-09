@@ -36,7 +36,7 @@ async fn main(spawner: Spawner) {
     let driver = Driver::new(p.USB, Irqs);
 
     let Pio { mut common, sm0, .. } = Pio::new(p.PIO1, Irqs);
-    let mut ws2812 = Ws2812::new(&mut common, sm0, p.DMA_CH1, p.PIN_2);
+    let mut ws2812 = Ws2812::new(&mut common, sm0, p.DMA_CH1, p.PIN_28);
     spawner.spawn(logger_task(driver)).unwrap();
 
     let fw = include_bytes!("../../embassy/cyw43-firmware/43439A0.bin");
