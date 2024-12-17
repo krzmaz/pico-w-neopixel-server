@@ -11,3 +11,6 @@ src/secret.rs
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+
+# Stupid Mac thing
+.DS_Store
