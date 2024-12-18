@@ -57,3 +57,17 @@ where
     // let the neopixels latch on
     Timer::after_micros(60).await;
 }
+
+#[cfg(feature = "startup_fill")]
+pub async fn fill_lights<P, const S: usize>((r, g, b): (u8, u8, u8), len: usize, ws2812: &mut Ws2812<'_, P, S>)
+where
+    P: Instance,
+{
+    for _ in 0..len {
+        ws2812.write(r, g, b);
+    }
+    // wait for the state machine to write all bytes
+    ws2812.flush();
+    // let the neopixels latch on
+    Timer::after_micros(60).await;
+}
