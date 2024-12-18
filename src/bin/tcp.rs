@@ -32,10 +32,16 @@ bind_interrupts!(struct Irqs {
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
-    let driver = Driver::new(p.USB, Irqs);
 
     let Pio { mut common, sm0, .. } = Pio::new(p.PIO1, Irqs);
     let mut ws2812 = Ws2812::new(&mut common, sm0, p.DMA_CH1, p.PIN_2);
+    #[cfg(feature = "startup_fill")]
+    {
+        let warm_white = (127, 54, 14); // 2700K, 70% apparent brightness, gamma corrected
+        pico_w_neopixel_server::frame::fill_lights(warm_white, 1000, &mut ws2812).await;
+    }
+
+    let driver = Driver::new(p.USB, Irqs);
     spawner.spawn(logger_task(driver)).unwrap();
 
     let fw = include_bytes!("../../cyw43-firmware/43439A0.bin");
