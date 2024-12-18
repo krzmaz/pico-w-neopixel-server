@@ -38,7 +38,7 @@ async fn main(spawner: Spawner) {
     #[cfg(feature = "startup_fill")]
     {
         let warm_white = (127, 54, 14); // 2700K, 70% apparent brightness, gamma corrected
-        pico_w_neopixel_server::frame::fill_lights(warm_white, 1000, &mut ws2812).await;
+        pico_w_neopixel_server::frame::fill_lights(warm_white, 1500, &mut ws2812).await;
     }
 
     let driver = Driver::new(p.USB, Irqs);
