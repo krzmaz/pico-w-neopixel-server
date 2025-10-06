@@ -1,6 +1,6 @@
-use embassy_rp::dma::{AnyChannel, Channel};
+use embassy_rp::dma::AnyChannel;
 use embassy_rp::pio::{Common, FifoJoin, Instance, PioPin, ShiftConfig, ShiftDirection, StateMachine};
-use embassy_rp::{clocks, into_ref, Peripheral, PeripheralRef};
+use embassy_rp::{clocks, Peri};
 use fixed::types::U24F8;
 use fixed_macro::fixed;
 
@@ -17,7 +17,7 @@ pub fn convert_colors_to_word(r: u8, g: u8, b: u8) -> u32 {
 
 pub struct Ws2812<'d, P: Instance, const S: usize> {
     #[allow(dead_code)] // leaving dma for future experiments
-    dma: PeripheralRef<'d, AnyChannel>,
+    dma: Peri<'d, AnyChannel>,
     sm: StateMachine<'d, P, S>,
 }
 
@@ -25,11 +25,9 @@ impl<'d, P: Instance, const S: usize> Ws2812<'d, P, S> {
     pub fn new(
         pio: &mut Common<'d, P>,
         mut sm: StateMachine<'d, P, S>,
-        dma: impl Peripheral<P = impl Channel> + 'd,
-        pin: impl PioPin,
+        dma: Peri<'d, AnyChannel>,
+        pin: Peri<'d, impl PioPin + 'd>,
     ) -> Self {
-        into_ref!(dma);
-
         // Setup sm0
 
         // prepare the PIO program
@@ -85,15 +83,12 @@ impl<'d, P: Instance, const S: usize> Ws2812<'d, P, S> {
         sm.set_config(&cfg);
         sm.set_enable(true);
 
-        Self {
-            dma: dma.map_into(),
-            sm,
-        }
+        Self { dma, sm }
     }
 
     // left here for future experiments
     pub async fn _write_dma(&mut self, data: &[u32]) {
-        self.sm.tx().dma_push(self.dma.reborrow(), data).await;
+        self.sm.tx().dma_push(self.dma.reborrow(), data, false).await;
     }
 
     // see https://github.com/rp-rs/ws2812-pio-rs/blob/944494ca9dad73933f700408c3054c8f14c78998/src/lib.rs#L262-L263
