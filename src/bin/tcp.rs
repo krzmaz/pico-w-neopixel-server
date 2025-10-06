@@ -6,7 +6,8 @@
 #![no_main]
 #![allow(incomplete_features)]
 
-use cyw43_pio::PioSpi;
+use cyw43::JoinOptions;
+use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER};
 use defmt::*;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
@@ -20,6 +21,7 @@ use embassy_rp::usb::Driver;
 use embassy_time::Duration;
 use pico_w_neopixel_server::ws2812::Ws2812;
 use pico_w_neopixel_server::{frame, logger_task, net_task, secret, wifi_task};
+use ringbuf::traits::{Consumer, Producer, SplitRef};
 use ringbuf::StaticRb;
 use static_cell::StaticCell;
 
@@ -34,7 +36,7 @@ async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
     let Pio { mut common, sm0, .. } = Pio::new(p.PIO1, Irqs);
-    let mut ws2812 = Ws2812::new(&mut common, sm0, p.DMA_CH1, p.PIN_2);
+    let mut ws2812 = Ws2812::new(&mut common, sm0, p.DMA_CH1.into(), p.PIN_2);
     #[cfg(feature = "startup_fill")]
     {
         let warm_white = (127, 54, 14); // 2700K, 70% apparent brightness, gamma corrected
@@ -57,7 +59,16 @@ async fn main(spawner: Spawner) {
     let pwr = Output::new(p.PIN_23, Level::Low);
     let cs = Output::new(p.PIN_25, Level::High);
     let mut pio0 = Pio::new(p.PIO0, Irqs);
-    let spi = PioSpi::new(&mut pio0.common, pio0.sm0, pio0.irq0, cs, p.PIN_24, p.PIN_29, p.DMA_CH0);
+    let spi = PioSpi::new(
+        &mut pio0.common,
+        pio0.sm0,
+        DEFAULT_CLOCK_DIVIDER,
+        pio0.irq0,
+        cs,
+        p.PIN_24,
+        p.PIN_29,
+        p.DMA_CH0,
+    );
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
@@ -77,10 +88,12 @@ async fn main(spawner: Spawner) {
 
     // Launch network task that runs `stack.run().await`
     spawner.spawn(net_task(runner)).unwrap();
-
     loop {
         // use the example file to create secret.rs
-        match control.join_wpa2(secret::WIFI_NETWORK, secret::WIFI_PASSWORD).await {
+        match control
+            .join(secret::WIFI_NETWORK, JoinOptions::new(secret::WIFI_PASSWORD.as_bytes()))
+            .await
+        {
             Ok(_) => break,
             Err(err) => {
                 log::info!("join failed with status={}", err.status);
