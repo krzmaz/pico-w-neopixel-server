@@ -111,7 +111,8 @@ async fn main(spawner: Spawner) {
                 frame::display_frame(&mut cons, frame_length, &mut ws2812).await;
             }
 
-            let count = match socket.recv_from(&mut buf[..cons.free_len()]).await {
+            let max_read_count = cons.free_len().clamp(0, buf.len());
+            let count = match socket.recv_from(&mut buf[..max_read_count]).await {
                 Ok((count, _)) => count,
                 Err(e) => {
                     log::warn!("read error: {:?}", e);
