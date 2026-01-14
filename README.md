@@ -7,6 +7,19 @@ Developed to work with https://github.com/mrozycki/rustmas project.
 ## Setup
 ### Wiring
 See [wiring.md](docs/wiring.md)
+
+### Building using Nix
+
+First, read [WiFi Credentials](#wifi-credentials).
+
+If you have Nix installed, you can build this project by running `nix build path:.`. This will result in two uf2 files in the `result/bin` directory. You can copy them to your Pico while in bootsel mode.
+
+Alternatively, you can use `nix run` to run the upload script that should flash the binaries without your manual intervention (providing Pico is connected in bootsel mode).
+
+There's also a development shell available through `nix develop` that contains all the dependencies including picotool and netcat to test the lights.
+
+Development shell should activate automatically when you enter the root directory of this project if you're using direnv.
+
 ### Dependencies
 You will need to use [picotool](https://github.com/raspberrypi/picotool) or [elf2uf2-rs](https://github.com/JoNil/elf2uf2-rs) to flash the compiled binary onto your pico.  
 Choose whichever you want and set the runner in `.cargo/config.toml` accordingly
